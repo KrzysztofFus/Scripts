@@ -1,0 +1,186 @@
+global proc vBuddy(){
+	string $win=`window -title "vBuddy" vBuddy`;
+	columnLayout;	
+	string $apply=`button -w 180 -label "On" -command "vOn"`;
+	//button -e -label "son" ;
+	string $apply=`button -w 180 -label "Off" -command "vOff"`;
+	//button -e -label "son" ;
+setParent ..;
+	window -e -w 180 -h 120 -s 0 $win;
+	showWindow $win;
+}
+
+global proc vOn()
+{
+    layerEditorLayerButtonVisibilityChange ViewportLights;
+    ActivateViewport20;
+    //{  
+    string $currentPanel = `getPanel -withFocus`;  
+     string $panelType = `getPanel -to $currentPanel`;  
+     if ($panelType ==  "modelPanel")
+      {    
+          modelEditor -edit -dl "all" $currentPanel; 
+      } 
+      else if (`isTrue "MayaCreatorExists"` && `scriptedPanel -ex $currentPanel` && `scriptedPanel -q -type $currentPanel` == "dynPaintScriptedPanelType") 
+      {     
+          dynPaintEditor -e -dtx 1 -dsl "all" "daName";  
+      } 
+      else if ($panelType ==  "scriptedPanel") 
+      {         
+          string $cmd = "modelEditor -edit -displayLights \"all\" "; 
+          scriptedPanelRunTimeCmd( $cmd, $currentPanel ); 
+      }
+     //}
+   modelEditor -e -shadows true modelPanel1;
+     modelEditor -e -shadows true modelPanel2;
+     modelEditor -e -shadows true modelPanel3;
+     modelEditor -e -shadows true modelPanel4;
+ }
+
+ //Create and name Key light
+{
+string $volume[];
+
+$volume[0] = `createNode "directionalLight"`;
+$volume = `listRelatives -p $volume`;
+
+rename $volume "KeyViewportLight";
+}
+
+//Set attributes and move light
+setAttr "KeyViewportLightShape.color" -type double3 0.922 0.906587 0.867602 ;
+setAttr "KeyViewportLightShape.shadowColor" -type double3 0.500008 0.500008 0.500008 ;
+setAttr "KeyViewportLightShape.useDepthMapShadows" 1;
+setAttr "KeyViewportLightShape.dmapResolution" 4096;
+setAttr "KeyViewportLightShape.dmapFilterSize" 6;
+
+setAttr "KeyViewportLight.translateX" -2000;
+setAttr "KeyViewportLight.translateY" 10;
+setAttr "KeyViewportLight.translateZ" 12;
+setAttr "KeyViewportLight.rotateX" -50;
+setAttr "KeyViewportLight.rotateY" -1080;
+setAttr "KeyViewportLight.rotateZ" 25;
+
+//Parent Light to Perp Camera
+select -r KeyViewportLight ;
+select -r persp ;
+select -add KeyViewportLight ;
+doCreateParentConstraintArgList 1 { "1","0","0","0","0","0","0","1","","1" };
+parentConstraint -mo -weight 1;
+
+select -cl ;
+
+//Create and name FIll light
+{
+string $amb[];
+
+$amb[0] = `createNode "ambientLight"`;
+$amb = `listRelatives -p $amb`;
+
+rename $amb "FillViewportLight";
+}
+
+//Set attributes and move light
+setAttr "FillViewportLightShape.intensity" 0.2;
+setAttr "FillViewportLightShape.color" -type double3 0.889 0.98335 1 ;
+setAttr "FillViewportLight.translateX" 2000;
+setAttr "FillViewportLight.translateY" 0;
+setAttr "FillViewportLight.translateZ" -14;
+
+//Parent Light to Perp Camera
+select -r persp ;
+select -add FillViewportLight ;
+doCreateParentConstraintArgList 1 { "1","0","0","0","0","0","0","1","","1" };
+parentConstraint -mo -weight 1;
+
+//create ShadowPlane with falloff shader
+polyPlane -w 100 -h 100 -sx 1 -sy 1 -ax 0 1 0 -cuv 2 -ch 1 -name"renderShadowPlane";
+setAttr "renderShadowPlaneShape.doubleSided" 0;
+
+select -cl ;
+
+shadingNode -asShader lambert -name "renderShadowShader";
+shadingNode -asTexture ramp -name"renderShadowRamp";
+connectAttr -force renderShadowRamp.outColor renderShadowShader.transparency;
+setAttr "renderShadowRamp.type" 4;
+removeMultiInstance -break true renderShadowRamp.colorEntryList[1];
+setAttr "renderShadowRamp.colorEntryList[0].color" -type double3 0.5 0.5 0.5 ;
+setAttr "renderShadowRamp.colorEntryList[2].color" -type double3 1 1 1 ;
+setAttr "renderShadowRamp.colorEntryList[2].position" 0.6;
+setAttr "renderShadowRamp.interpolation" 4;
+setAttr "renderShadowShader.color" -type double3 0.9 0.9 0.9 ;
+
+
+select -r renderShadowPlane ;
+hyperShade -assign renderShadowShader;
+
+select -cl ;
+
+
+
+//Create Layers
+createDisplayLayer -name "ViewportLights" -number 1 -empty;
+select -r KeyViewportLight ;
+select -add FillViewportLight ;
+select -add renderShadowPlane ;
+editDisplayLayerMembers -noRecurse ViewportLights `ls -selection`;
+setLayerTo ViewportLights".displayType" 1;
+
+
+
+layerEditorLayerButtonVisibilityChange ViewportLights;
+
+//Viewport Attributes
+setAttr "hardwareRenderingGlobals.consolidateWorld" 0;
+
+setAttr "hardwareRenderingGlobals.ssaoEnable" 1;
+setAttr "hardwareRenderingGlobals.ssaoAmount" 1;
+setAttr "hardwareRenderingGlobals.ssaoRadius" 16;
+setAttr "hardwareRenderingGlobals.ssaoFilterRadius" 16;
+setAttr "hardwareRenderingGlobals.ssaoSamples" 16;
+
+setAttr "hardwareRenderingGlobals.multiSampleEnable" 1;
+setAttr "hardwareRenderingGlobals.vertexAnimationCache" 0;
+
+
+modelEditor -e -shadows true modelPanel1;
+modelEditor -e -shadows true modelPanel2;
+modelEditor -e -shadows true modelPanel3;
+modelEditor -e -shadows true modelPanel4;
+
+//Turn off Twosided Lighting
+modelEditor -e -twoSidedLighting 0 modelPanel1;
+modelEditor -e -twoSidedLighting 0 modelPanel2;
+modelEditor -e -twoSidedLighting 0 modelPanel3;
+modelEditor -e -twoSidedLighting 0 modelPanel4; 
+
+//Viewport Quality
+modelEditor -e -smoothWireframe 1 modelPanel1;
+modelEditor -e -smoothWireframe 1 modelPanel2;
+modelEditor -e -smoothWireframe 1 modelPanel3;
+modelEditor -e -smoothWireframe 1 modelPanel4;
+
+connectAttr -nextAvailable FillViewportLight.instObjGroups defaultLightSet.dagSetMembers;
+connectAttr -nextAvailable KeyViewportLight.instObjGroups defaultLightSet.dagSetMembers;
+
+modelEditor -e -displayTextures true modelPanel4;
+
+select -cl ;
+
+layerEditorLayerButtonTypeChange ViewportLights;
+layerEditorLayerButtonTypeChange ViewportLights;
+
+global proc vOff(){
+
+select -cl ;
+select -r KeyViewportLight ;
+select -add FillViewportLight ;
+select -add renderShadowPlane ;
+select -add renderShadowRamp ;
+select -add renderShadowShader ;
+
+doDelete;
+delete ViewportLights;
+}
+
+vBuddy
