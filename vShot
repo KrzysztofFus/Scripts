@@ -1,0 +1,19 @@
+global proc vShot() 
+{
+int $myFrame = `currentTime -q`;
+string $myFrameString = `currentTime -q`;
+int $stringLen = size($myFrameString);
+int $numZeros = 4 - $stringLen;
+string $myId = `system("echo $USER")`;
+$myId = strip($myId);
+for ($i=0; $i<$numZeros; $i++){
+	$myFrameString = ("0"+$myFrameString);
+}
+string $cmd = "roll /u/"+$myId+"/vShotFrame1:2."+$myFrameString+".jpg &";
+playblast -offScreen -p 100 -viewer 0 -fr $myFrame -format "image" -fo -rfn -f ("/u/"+$myId+"/vShotFrame1" );
+playblast -offScreen -p 100 -viewer 0 -fr $myFrame -format "image" -fo -rfn -f ("/u/"+$myId+"/vShotFrame2" );
+
+system($cmd);
+}
+
+vShot;
